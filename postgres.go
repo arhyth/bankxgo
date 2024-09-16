@@ -18,17 +18,17 @@ var (
 	`
 
 	pgDebitChargeSQL = `
-		INSERT INTO charges (t, amount, tx_id, acct_id)
+		INSERT INTO charges (typ, amount, tx_id, acct_id)
 		VALUES ('debit', $1, $2, $3);
 	`
 
 	pgCreditChargeSQL = `
-		INSERT INTO charges (t, amount, tx_id, acct_id)
+		INSERT INTO charges (typ, amount, tx_id, acct_id)
 		VALUES ('credit', $1, $2, $3);
 	`
 
 	pgSelectForUpdateAcctSQL = `
-		SELECT balance INTO acct_balance
+		SELECT balance
 		FROM accounts
 		WHERE pub_id = $1
 		FOR UPDATE;
@@ -55,6 +55,7 @@ func NewPostgresEndpoint(connStr string) (*PostgresEndpoint, error) {
 	if err != nil {
 		return nil, err
 	}
+	cfg.MaxConns = 10
 	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
 		return nil, err
@@ -95,13 +96,13 @@ func (pg *PostgresEndpoint) CreditUser(amount decimal.Decimal, userAcct, sysAcct
 	btresults := tx.SendBatch(ctx, batch)
 	for i := 0; i < 2; i++ {
 		if _, err = btresults.Exec(); err != nil {
-			if err = tx.Rollback(ctx); err != nil {
-				pg.log.Err(err).Msgf("transaction `%v` rollback fail", itxn)
+			if rerr := tx.Rollback(ctx); rerr != nil {
+				pg.log.Err(rerr).Msgf("transaction `%v` rollback fail", itxn)
 			}
 			return err
 		}
 	}
-	defer btresults.Close()
+	btresults.Close()
 
 	row = tx.QueryRow(ctx, pgSelectForUpdateAcctSQL, userAcct)
 	var bal decimal.Decimal
@@ -109,18 +110,15 @@ func (pg *PostgresEndpoint) CreditUser(amount decimal.Decimal, userAcct, sysAcct
 		return err
 	}
 
-	if bal.LessThan(amount) {
-		if err = tx.Rollback(ctx); err != nil {
-			pg.log.Err(err).Msgf("transaction `%v` rollback fail", itxn)
-		}
-		return ErrBadRequest{Fields: map[string]string{"amount": "insufficient balance"}}
-	}
-
-	if _, err = tx.Exec(ctx, pgUpdateAcctSQL, bal.Add(amount.Neg()), userAcct); err != nil {
-		if err = tx.Rollback(ctx); err != nil {
-			pg.log.Err(err).Msgf("transaction `%v` rollback fail", itxn)
+	if _, err = tx.Exec(ctx, pgUpdateAcctSQL, bal.Add(amount), userAcct); err != nil {
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			pg.log.Err(rerr).Msgf("transaction `%v` rollback fail", itxn)
 		}
 		return err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		pg.log.Err(err).Msg("CreditUser: transaction commit fail")
 	}
 
 	return err
@@ -173,9 +171,9 @@ func (pg *PostgresEndpoint) GetAcct(id snowflake.ID) (*Account, error) {
 	}
 
 	acct := &Account{
-		acctID:   id,
-		currency: rcur,
-		balance:  rbal,
+		AcctID:   id,
+		Currency: rcur,
+		Balance:  rbal,
 	}
 	return acct, err
 }

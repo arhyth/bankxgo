@@ -31,6 +31,7 @@ func TestPostgres(t *testing.T) {
 	as := assert.New(t)
 	reqrd := require.New(t)
 
+	// conn, _, err := initDB()
 	conn, teardown, err := initDB()
 	reqrd.Nil(err)
 	t.Cleanup(teardown)
@@ -55,9 +56,12 @@ func TestPostgres(t *testing.T) {
 		endpt.CreateAccount(car)
 		reqrd.Nil(err)
 
-		amount := decimal.New(123, -1)
+		amount := decimal.New(123, 0)
 		err = endpt.CreditUser(amount, car.AcctID, accts[car.Currency])
-		as.Nil(err)
+		reqrd.Nil(err)
+		retrieved, err := endpt.GetAcct(car.AcctID)
+		reqrd.Nil(err)
+		as.Equal(amount, retrieved.Balance)
 	})
 }
 

@@ -9,12 +9,12 @@ import (
 )
 
 type Account struct {
-	// acctID and other instances of it in struct fields in this package
+	// AcctID and other instances of it in struct fields in this package
 	// refers to the public id of the account (as opposed to its BIGINT id)
 	// hence named `pub_id` column in the database
-	acctID   snowflake.ID
-	currency string
-	balance  decimal.Decimal
+	AcctID   snowflake.ID
+	Currency string
+	Balance  decimal.Decimal
 }
 
 type CreateAccountReq struct {
@@ -59,7 +59,7 @@ func NewService(
 		if err != nil {
 			return nil, err
 		}
-		if a.currency != c {
+		if a.Currency != c {
 			return nil, fmt.Errorf("provided system account %v for currency %s does not match records", id, c)
 		}
 	}
@@ -97,7 +97,7 @@ func (s *serviceImpl) CreateAccount(req CreateAccountReq) (*Account, error) {
 	}
 
 	acct := &Account{
-		acctID: req.AcctID,
+		AcctID: req.AcctID,
 	}
 	return acct, err
 }

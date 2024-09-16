@@ -3,7 +3,7 @@ CREATE TABLE accounts (
     pub_id BIGINT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
     currency TEXT NOT NULL,
-    balance NUMERIC,
+    balance NUMERIC DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -22,6 +22,6 @@ CREATE TABLE charges (
     typ charge_type NOT NULL,
     amount NUMERIC NOT NULL,
     tx_id BIGINT REFERENCES transactions(id) ON DELETE RESTRICT,
-    acct_id BIGINT REFERENCES accounts(id) ON DELETE RESTRICT,
+    acct_id BIGINT REFERENCES accounts(pub_id) ON DELETE RESTRICT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
