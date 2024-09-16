@@ -1,0 +1,8 @@
+INSERT INTO accounts (pub_id, email, currency, balance)
+VALUES
+{{- $length := len . -}}
+{{- $idx :=  0 -}}
+{{- range $cur, $acctID := . }}
+  ({{ $acctID }}, '{{ $cur | ToLower }}@root', '{{ $cur }}', 999999999999.00){{ if ne (add $idx 1) ($length) }},{{ end }}
+  {{- $idx = (add $idx 1) -}}
+{{- end }};

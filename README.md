@@ -93,8 +93,9 @@ Response:
 
 
 ## To Do
-- [ ] deposit method and endpoint  
-- [ ] tests  
+- [x] deposit method and endpoint  
+- [x] tests  
+- [ ] tests
 - [ ] withdraw method and endpoint  
 - [ ] tests  
 - [ ] balance method and endpoint  

@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS charges;
+DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS accounts;
+
+DROP TYPE IF EXISTS txn_type;
+DROP TYPE IF EXISTS charge_type;
