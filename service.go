@@ -55,7 +55,7 @@ func NewService(
 	system_accts map[string]snowflake.ID,
 ) (*serviceImpl, error) {
 	for c, id := range system_accts {
-		a, err := repo.GetAcct(id)
+		a, err := repo.GetAccount(id)
 		if err != nil {
 			return nil, err
 		}
@@ -64,9 +64,9 @@ func NewService(
 		}
 	}
 
-	// hardcoded for "simplicity", but this should be retrieved from
-	// the node environment like some EC2 identifier
-	node, err := snowflake.NewNode(123456789)
+	// hardcoded for "simplicity", but this should be seeded by data from
+	// the node environment like an EC2 machine identifier or something
+	node, err := snowflake.NewNode(888)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,6 @@ func NewService(
 		system_accts: system_accts,
 		node:         node,
 	}
-
 	return svc, nil
 }
 
@@ -90,6 +89,7 @@ type serviceImpl struct {
 }
 
 func (s *serviceImpl) CreateAccount(req CreateAccountReq) (*Account, error) {
+	// TODO: add middleware to check if currency is supported
 	req.AcctID = s.node.Generate()
 	err := s.repo.CreateAccount(req)
 	if err != nil {
@@ -103,7 +103,11 @@ func (s *serviceImpl) CreateAccount(req CreateAccountReq) (*Account, error) {
 }
 
 func (s *serviceImpl) Deposit(req ChargeReq) error {
-	sysAcct := s.system_accts[req.Currency]
+	// TODO: implement this check in middleware
+	sysAcct, exists := s.system_accts[req.Currency]
+	if !exists {
+		return ErrBadRequest{Fields: map[string]string{"currency": "unsupported"}}
+	}
 	err := s.repo.CreditUser(req.Amount, req.AcctID, sysAcct)
 	return err
 }
@@ -115,7 +119,11 @@ func (s *serviceImpl) Withdraw(req ChargeReq) error {
 }
 
 func (s *serviceImpl) Balance(req BalanceReq) (decimal.Decimal, error) {
-	return decimal.NewFromInt(0), nil
+	acct, err := s.repo.GetAccount(req.AcctID)
+	if err != nil {
+		return decimal.NewFromInt(0), err
+	}
+	return acct.Balance, err
 }
 
 func (s *serviceImpl) Statement(w io.Writer, req StatementReq) error {
