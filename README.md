@@ -96,8 +96,8 @@ Response:
 - [x] deposit method and endpoint  
 - [x] tests  
 - [ ] tests
-- [ ] withdraw method and endpoint  
-- [ ] tests  
+- [x] withdraw method and endpoint  
+- [x] tests  
 - [ ] balance method and endpoint  
 - [ ] tests  
 - [ ] statement method and endpoint  

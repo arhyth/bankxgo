@@ -58,7 +58,7 @@ func TestPostgres(t *testing.T) {
 		amount := decimal.New(123, 0)
 		err = endpt.CreditUser(amount, car.AcctID, accts[car.Currency])
 		reqrd.Nil(err)
-		retrieved, err := endpt.GetAcct(car.AcctID)
+		retrieved, err := endpt.GetAccount(car.AcctID)
 		reqrd.Nil(err)
 		as.Equal(amount, retrieved.Balance)
 	})

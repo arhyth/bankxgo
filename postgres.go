@@ -204,7 +204,7 @@ func (pg *PostgresEndpoint) CreateAccount(req CreateAccountReq) error {
 	return err
 }
 
-func (pg *PostgresEndpoint) GetAcct(id snowflake.ID) (*Account, error) {
+func (pg *PostgresEndpoint) GetAccount(id snowflake.ID) (*Account, error) {
 	ctx := context.Background()
 	conn, err := pg.pool.Acquire(ctx)
 	if err != nil {

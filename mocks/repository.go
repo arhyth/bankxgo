@@ -83,17 +83,17 @@ func (mr *MockRepositoryMockRecorder) DebitUser(amount, userAcct, systemAcct any
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DebitUser", reflect.TypeOf((*MockRepository)(nil).DebitUser), amount, userAcct, systemAcct)
 }
 
-// GetAcct mocks base method.
-func (m *MockRepository) GetAcct(id snowflake.ID) (*bankxgo.Account, error) {
+// GetAccount mocks base method.
+func (m *MockRepository) GetAccount(id snowflake.ID) (*bankxgo.Account, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAcct", id)
+	ret := m.ctrl.Call(m, "GetAccount", id)
 	ret0, _ := ret[0].(*bankxgo.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetAcct indicates an expected call of GetAcct.
-func (mr *MockRepositoryMockRecorder) GetAcct(id any) *gomock.Call {
+// GetAccount indicates an expected call of GetAccount.
+func (mr *MockRepositoryMockRecorder) GetAccount(id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAcct", reflect.TypeOf((*MockRepository)(nil).GetAcct), id)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccount", reflect.TypeOf((*MockRepository)(nil).GetAccount), id)
 }

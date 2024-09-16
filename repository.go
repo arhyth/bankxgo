@@ -9,5 +9,5 @@ type Repository interface {
 	CreateAccount(req CreateAccountReq) error
 	CreditUser(amount decimal.Decimal, userAcct, systemAcct snowflake.ID) error
 	DebitUser(amount decimal.Decimal, userAcct, systemAcct snowflake.ID) error
-	GetAcct(id snowflake.ID) (*Account, error)
+	GetAccount(id snowflake.ID) (*Account, error)
 }
