@@ -69,6 +69,20 @@ func (mr *MockRepositoryMockRecorder) CreditUser(amount, userAcct, systemAcct an
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreditUser", reflect.TypeOf((*MockRepository)(nil).CreditUser), amount, userAcct, systemAcct)
 }
 
+// DebitUser mocks base method.
+func (m *MockRepository) DebitUser(amount decimal.Decimal, userAcct, systemAcct snowflake.ID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DebitUser", amount, userAcct, systemAcct)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DebitUser indicates an expected call of DebitUser.
+func (mr *MockRepositoryMockRecorder) DebitUser(amount, userAcct, systemAcct any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DebitUser", reflect.TypeOf((*MockRepository)(nil).DebitUser), amount, userAcct, systemAcct)
+}
+
 // GetAcct mocks base method.
 func (m *MockRepository) GetAcct(id snowflake.ID) (*bankxgo.Account, error) {
 	m.ctrl.T.Helper()

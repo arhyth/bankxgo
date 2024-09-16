@@ -31,7 +31,6 @@ func TestPostgres(t *testing.T) {
 	as := assert.New(t)
 	reqrd := require.New(t)
 
-	// conn, _, err := initDB()
 	conn, teardown, err := initDB()
 	reqrd.Nil(err)
 	t.Cleanup(teardown)
@@ -47,7 +46,7 @@ func TestPostgres(t *testing.T) {
 	endpt, err := bankxgo.NewPostgresEndpoint(testDBConnStr)
 	reqrd.Nil(err)
 
-	t.Run("Deposit", func(tt *testing.T) {
+	t.Run("CreditUser", func(tt *testing.T) {
 		car := bankxgo.CreateAccountReq{
 			Email:    "arhyth@gmail.com",
 			Currency: "USD",
@@ -62,6 +61,20 @@ func TestPostgres(t *testing.T) {
 		retrieved, err := endpt.GetAcct(car.AcctID)
 		reqrd.Nil(err)
 		as.Equal(amount, retrieved.Balance)
+	})
+
+	t.Run("DebitUser returns error on insufficient balance", func(tt *testing.T) {
+		car := bankxgo.CreateAccountReq{
+			Email:    "poor@guy.com",
+			Currency: "PHP",
+			AcctID:   node.Generate(),
+		}
+		endpt.CreateAccount(car)
+		reqrd.Nil(err)
+
+		amount := decimal.New(5000, 0)
+		err = endpt.DebitUser(amount, car.AcctID, accts[car.Currency])
+		reqrd.ErrorAs(err, &bankxgo.ErrBadRequest{})
 	})
 }
 

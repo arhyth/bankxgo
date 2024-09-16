@@ -109,7 +109,9 @@ func (s *serviceImpl) Deposit(req ChargeReq) error {
 }
 
 func (s *serviceImpl) Withdraw(req ChargeReq) error {
-	return nil
+	sysAcct := s.system_accts[req.Currency]
+	err := s.repo.DebitUser(req.Amount, req.AcctID, sysAcct)
+	return err
 }
 
 func (s *serviceImpl) Balance(req BalanceReq) (decimal.Decimal, error) {
