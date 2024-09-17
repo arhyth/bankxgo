@@ -71,23 +71,27 @@ func NewPostgresEndpoint(connStr string) (*PostgresEndpoint, error) {
 	return endpt, err
 }
 
-func (pg *PostgresEndpoint) CreditUser(amount decimal.Decimal, userAcct, sysAcct snowflake.ID) error {
+func (pg *PostgresEndpoint) CreditUser(
+	amount decimal.Decimal,
+	userAcct,
+	sysAcct snowflake.ID,
+) (*decimal.Decimal, error) {
 	ctx := context.Background()
 	conn, err := pg.pool.Acquire(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer conn.Release()
 
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	row := tx.QueryRow(ctx, pgInsertTxnSQL, "deposit")
 	var itxn int64
 	if err = row.Scan(&itxn); err != nil {
-		return err
+		return nil, err
 	}
 
 	batch := &pgx.Batch{}
@@ -99,7 +103,7 @@ func (pg *PostgresEndpoint) CreditUser(amount decimal.Decimal, userAcct, sysAcct
 			if rerr := tx.Rollback(ctx); rerr != nil {
 				pg.log.Err(rerr).Msgf("transaction `%v` rollback fail", itxn)
 			}
-			return err
+			return nil, err
 		}
 	}
 	btresults.Close()
@@ -107,40 +111,44 @@ func (pg *PostgresEndpoint) CreditUser(amount decimal.Decimal, userAcct, sysAcct
 	row = tx.QueryRow(ctx, pgSelectForUpdateAcctSQL, userAcct)
 	var bal decimal.Decimal
 	if err = row.Scan(&bal); err != nil {
-		return err
+		return nil, err
 	}
 
 	if _, err = tx.Exec(ctx, pgUpdateAcctSQL, bal.Add(amount), userAcct); err != nil {
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			pg.log.Err(rerr).Msgf("transaction `%v` rollback fail", itxn)
 		}
-		return err
+		return nil, err
 	}
 
 	if err = tx.Commit(ctx); err != nil {
 		pg.log.Err(err).Msg("CreditUser: transaction commit fail")
 	}
 
-	return err
+	return nil, err
 }
 
-func (pg *PostgresEndpoint) DebitUser(amount decimal.Decimal, userAcct, sysAcct snowflake.ID) error {
+func (pg *PostgresEndpoint) DebitUser(
+	amount decimal.Decimal,
+	userAcct,
+	sysAcct snowflake.ID,
+) (*decimal.Decimal, error) {
 	ctx := context.Background()
 	conn, err := pg.pool.Acquire(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer conn.Release()
 
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	row := tx.QueryRow(ctx, pgInsertTxnSQL, "withdrawal")
 	var itxn int64
 	if err = row.Scan(&itxn); err != nil {
-		return err
+		return nil, err
 	}
 
 	batch := &pgx.Batch{}
@@ -152,7 +160,7 @@ func (pg *PostgresEndpoint) DebitUser(amount decimal.Decimal, userAcct, sysAcct 
 			if rerr := tx.Rollback(ctx); rerr != nil {
 				pg.log.Err(rerr).Msgf("transaction `%v` rollback fail", itxn)
 			}
-			return err
+			return nil, err
 		}
 	}
 	btresults.Close()
@@ -160,28 +168,28 @@ func (pg *PostgresEndpoint) DebitUser(amount decimal.Decimal, userAcct, sysAcct 
 	row = tx.QueryRow(ctx, pgSelectForUpdateAcctSQL, userAcct)
 	var bal decimal.Decimal
 	if err = row.Scan(&bal); err != nil {
-		return err
+		return nil, err
 	}
 
 	if bal.LessThan(amount) {
 		if err = tx.Rollback(ctx); err != nil {
 			pg.log.Err(err).Msgf("transaction `%v` rollback fail", itxn)
 		}
-		return ErrBadRequest{Fields: map[string]string{"amount": "insufficient balance"}}
+		return nil, ErrBadRequest{Fields: map[string]string{"amount": "insufficient balance"}}
 	}
 
 	if _, err = tx.Exec(ctx, pgUpdateAcctSQL, bal.Add(amount.Neg()), userAcct); err != nil {
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			pg.log.Err(rerr).Msgf("transaction `%v` rollback fail", itxn)
 		}
-		return err
+		return nil, err
 	}
 
 	if err = tx.Commit(ctx); err != nil {
 		pg.log.Err(err).Msg("DebitUser: transaction commit fail")
 	}
 
-	return err
+	return nil, err
 }
 
 func (pg *PostgresEndpoint) CreateAccount(req CreateAccountReq) error {

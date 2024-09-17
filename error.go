@@ -10,7 +10,7 @@ var (
 )
 
 type ErrBadRequest struct {
-	Fields map[string]string
+	Fields map[string]string `json:"fields"`
 }
 
 func (e ErrBadRequest) Error() string {

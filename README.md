@@ -98,8 +98,8 @@ Response:
 - [ ] tests
 - [x] withdraw method and endpoint  
 - [x] tests  
-- [ ] balance method and endpoint  
-- [ ] tests  
+- [x] balance method and endpoint  
+- [x] tests  
 - [ ] statement method and endpoint  
 - [ ] middleware for statement to limit in-flight requests (use x/sync/semaphore)  
 - [ ] middleware for statement circuitbreaker  
@@ -107,7 +107,6 @@ Response:
 - [ ] middleware to check if email and acctID belong to the same account  
 - [ ] middleware/s to validate email and acctID in valid formats  
 - [ ] tests  
-- [ ] configuration for currencies and decimal precision  
 - [ ] configuration for system accounts  
 - [ ] tests  
 - [ ] tests  

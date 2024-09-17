@@ -44,9 +44,9 @@ type StatementReq struct {
 
 type Service interface {
 	CreateAccount(CreateAccountReq) (*Account, error)
-	Deposit(ChargeReq) error
-	Withdraw(ChargeReq) error
-	Balance(BalanceReq) (decimal.Decimal, error)
+	Deposit(ChargeReq) (*decimal.Decimal, error)
+	Withdraw(ChargeReq) (*decimal.Decimal, error)
+	Balance(BalanceReq) (*decimal.Decimal, error)
 	Statement(io.Writer, StatementReq) error
 }
 
@@ -102,28 +102,29 @@ func (s *serviceImpl) CreateAccount(req CreateAccountReq) (*Account, error) {
 	return acct, err
 }
 
-func (s *serviceImpl) Deposit(req ChargeReq) error {
+func (s *serviceImpl) Deposit(req ChargeReq) (*decimal.Decimal, error) {
 	// TODO: implement this check in middleware
 	sysAcct, exists := s.system_accts[req.Currency]
 	if !exists {
-		return ErrBadRequest{Fields: map[string]string{"currency": "unsupported"}}
+		return nil, ErrBadRequest{Fields: map[string]string{"currency": "unsupported"}}
 	}
-	err := s.repo.CreditUser(req.Amount, req.AcctID, sysAcct)
-	return err
+	bal, err := s.repo.CreditUser(req.Amount, req.AcctID, sysAcct)
+	return bal, err
 }
 
-func (s *serviceImpl) Withdraw(req ChargeReq) error {
+func (s *serviceImpl) Withdraw(req ChargeReq) (*decimal.Decimal, error) {
 	sysAcct := s.system_accts[req.Currency]
-	err := s.repo.DebitUser(req.Amount, req.AcctID, sysAcct)
-	return err
+	bal, err := s.repo.DebitUser(req.Amount, req.AcctID, sysAcct)
+	return bal, err
 }
 
-func (s *serviceImpl) Balance(req BalanceReq) (decimal.Decimal, error) {
+func (s *serviceImpl) Balance(req BalanceReq) (*decimal.Decimal, error) {
 	acct, err := s.repo.GetAccount(req.AcctID)
 	if err != nil {
-		return decimal.NewFromInt(0), err
+		return nil, err
 	}
-	return acct.Balance, err
+	bal := acct.Balance
+	return &bal, err
 }
 
 func (s *serviceImpl) Statement(w io.Writer, req StatementReq) error {

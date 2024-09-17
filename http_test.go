@@ -38,6 +38,7 @@ func TestHTTPDeposit(t *testing.T) {
 		w := httptest.NewRecorder()
 		hndlr.ServeHTTP(w, req)
 
+		as.Equal(http.StatusOK, w.Code)
 		resp := map[string]string{}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		as.Nil(err)
@@ -58,6 +59,7 @@ func TestHTTPDeposit(t *testing.T) {
 		w := httptest.NewRecorder()
 		hndlr.ServeHTTP(w, req)
 
+		as.Equal(http.StatusBadRequest, w.Code)
 		resp := map[string]string{}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		reqrd.Nil(err)
@@ -77,6 +79,7 @@ func TestHTTPDeposit(t *testing.T) {
 		w := httptest.NewRecorder()
 		hndlr.ServeHTTP(w, req)
 
+		as.Equal(http.StatusBadRequest, w.Code)
 		resp := map[string]map[string]string{}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		reqrd.Nil(err)
@@ -104,6 +107,7 @@ func TestHTTPWithdraw(t *testing.T) {
 		w := httptest.NewRecorder()
 		hndlr.ServeHTTP(w, req)
 
+		as.Equal(http.StatusOK, w.Code)
 		resp := map[string]string{}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		as.Nil(err)
@@ -124,6 +128,7 @@ func TestHTTPWithdraw(t *testing.T) {
 		w := httptest.NewRecorder()
 		hndlr.ServeHTTP(w, req)
 
+		as.Equal(http.StatusBadRequest, w.Code)
 		resp := map[string]string{}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		reqrd.Nil(err)
@@ -143,6 +148,7 @@ func TestHTTPWithdraw(t *testing.T) {
 		w := httptest.NewRecorder()
 		hndlr.ServeHTTP(w, req)
 
+		as.Equal(http.StatusBadRequest, w.Code)
 		resp := map[string]map[string]string{}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		reqrd.Nil(err)
@@ -171,6 +177,7 @@ func TestHTTPBalance(t *testing.T) {
 		w := httptest.NewRecorder()
 		hndlr.ServeHTTP(w, req)
 
+		as.Equal(http.StatusOK, w.Code)
 		resp := map[string]string{}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		as.Nil(err)

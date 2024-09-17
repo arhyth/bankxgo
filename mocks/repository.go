@@ -56,11 +56,12 @@ func (mr *MockRepositoryMockRecorder) CreateAccount(req any) *gomock.Call {
 }
 
 // CreditUser mocks base method.
-func (m *MockRepository) CreditUser(amount decimal.Decimal, userAcct, systemAcct snowflake.ID) error {
+func (m *MockRepository) CreditUser(amount decimal.Decimal, userAcct, systemAcct snowflake.ID) (*decimal.Decimal, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreditUser", amount, userAcct, systemAcct)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*decimal.Decimal)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreditUser indicates an expected call of CreditUser.
@@ -70,11 +71,12 @@ func (mr *MockRepositoryMockRecorder) CreditUser(amount, userAcct, systemAcct an
 }
 
 // DebitUser mocks base method.
-func (m *MockRepository) DebitUser(amount decimal.Decimal, userAcct, systemAcct snowflake.ID) error {
+func (m *MockRepository) DebitUser(amount decimal.Decimal, userAcct, systemAcct snowflake.ID) (*decimal.Decimal, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DebitUser", amount, userAcct, systemAcct)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*decimal.Decimal)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DebitUser indicates an expected call of DebitUser.

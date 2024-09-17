@@ -56,10 +56,11 @@ func TestPostgres(t *testing.T) {
 		reqrd.Nil(err)
 
 		amount := decimal.New(123, 0)
-		err = endpt.CreditUser(amount, car.AcctID, accts[car.Currency])
+		cbal, err := endpt.CreditUser(amount, car.AcctID, accts[car.Currency])
 		reqrd.Nil(err)
 		retrieved, err := endpt.GetAccount(car.AcctID)
 		reqrd.Nil(err)
+		as.Equal(retrieved.Balance, *cbal)
 		as.Equal(amount, retrieved.Balance)
 	})
 
@@ -73,8 +74,9 @@ func TestPostgres(t *testing.T) {
 		reqrd.Nil(err)
 
 		amount := decimal.New(5000, 0)
-		err = endpt.DebitUser(amount, car.AcctID, accts[car.Currency])
+		bal, err := endpt.DebitUser(amount, car.AcctID, accts[car.Currency])
 		reqrd.ErrorAs(err, &bankxgo.ErrBadRequest{})
+		as.Nil(bal)
 	})
 }
 

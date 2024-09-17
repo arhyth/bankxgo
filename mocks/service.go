@@ -42,10 +42,10 @@ func (m *MockService) EXPECT() *MockServiceMockRecorder {
 }
 
 // Balance mocks base method.
-func (m *MockService) Balance(arg0 bankxgo.BalanceReq) (decimal.Decimal, error) {
+func (m *MockService) Balance(arg0 bankxgo.BalanceReq) (*decimal.Decimal, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Balance", arg0)
-	ret0, _ := ret[0].(decimal.Decimal)
+	ret0, _ := ret[0].(*decimal.Decimal)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -72,11 +72,12 @@ func (mr *MockServiceMockRecorder) CreateAccount(arg0 any) *gomock.Call {
 }
 
 // Deposit mocks base method.
-func (m *MockService) Deposit(arg0 bankxgo.ChargeReq) error {
+func (m *MockService) Deposit(arg0 bankxgo.ChargeReq) (*decimal.Decimal, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Deposit", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*decimal.Decimal)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Deposit indicates an expected call of Deposit.
@@ -100,11 +101,12 @@ func (mr *MockServiceMockRecorder) Statement(arg0, arg1 any) *gomock.Call {
 }
 
 // Withdraw mocks base method.
-func (m *MockService) Withdraw(arg0 bankxgo.ChargeReq) error {
+func (m *MockService) Withdraw(arg0 bankxgo.ChargeReq) (*decimal.Decimal, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Withdraw", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*decimal.Decimal)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Withdraw indicates an expected call of Withdraw.

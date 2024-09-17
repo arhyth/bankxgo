@@ -70,7 +70,7 @@ func TestBalance(t *testing.T) {
 			Email:    userEmail,
 			Currency: userAcctCurr,
 		}
-		err = svc.Deposit(dep)
+		_, err = svc.Deposit(dep)
 		reqrd.Nil(err)
 
 		usrAcct := &bankxgo.Account{
