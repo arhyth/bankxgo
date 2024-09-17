@@ -37,8 +37,25 @@ Request Body:
 ```
 Response:  
 `200` OK on success.  
+```json
+{
+    "balance": 200.0
+}
+```
 `400` Bad Request if the amount exceeds the available balance.  
+```json
+{
+    "fields": {
+        "amount": "insufficient balance"
+    }
+}
+```
 `404` Not Found if the account is not found.
+```json
+{
+    "id": 123456789
+}
+```
 
 ### Deposit Funds
 Endpoint: `POST /accounts/{acctId}/deposit`  
@@ -52,8 +69,25 @@ Request Body:
 ```
 Response:  
 `200` OK on success.  
+```json
+{
+    "balance": 300.0
+}
+```
 `400` Bad Request if the amount is invalid.  
+```json
+{
+    "fields": {
+        "amount": "cannot be negative"
+    }
+}
+```
 `404` Not Found if the account is not found.  
+```json
+{
+    "id": 123456789
+}
+```
 
 ### Generate Statement of Account (SOA)
 Endpoint: `GET /accounts/{acctId}/statement`  
@@ -75,7 +109,11 @@ Response:
 }
 ```
 `404` Not Found if the account is not found.
-
+```json
+{
+    "id": 123456789
+}
+```
 
 ## Data Model | Architecture Notes
 ![data model](bankxgo_flow.svg)
@@ -95,18 +133,17 @@ Response:
 ## To Do
 - [x] deposit method and endpoint  
 - [x] tests  
-- [ ] tests
+- [x] tests
 - [x] withdraw method and endpoint  
 - [x] tests  
 - [x] balance method and endpoint  
 - [x] tests  
 - [ ] statement method and endpoint  
-- [ ] middleware for statement to limit in-flight requests (use x/sync/semaphore)  
-- [ ] middleware for statement circuitbreaker  
+- [ ] middleware to limit in-flight requests (use x/sync/semaphore)  
+- [ ] middleware circuitbreaker  
 - [ ] tests  
-- [ ] middleware to check if email and acctID belong to the same account  
-- [ ] middleware/s to validate email and acctID in valid formats  
-- [ ] tests  
+- [x] middleware for input validation 
+- [x] tests  
 - [ ] configuration for system accounts  
 - [ ] tests  
 - [ ] tests  

@@ -1,49 +1,131 @@
 package bankxgo
 
 import (
+	"errors"
 	"io"
+	"regexp"
 
+	"github.com/bwmarrin/snowflake"
 	"github.com/shopspring/decimal"
 	"github.com/sony/gobreaker/v2"
 	"golang.org/x/sync/semaphore"
 )
 
 var (
-	_ Service = (*validationMiddleware)(nil)
+	emailRegex = regexp.MustCompile(`^[\w\.-]+@[a-zA-Z\d\.-]+\.[a-zA-Z]{2,}$`)
 )
+
+var _ Service = (*validationMiddleware)(nil)
 
 type Middleware func(Service) Service
 
+// validationMiddleware validates the following invariants:
+// 1. The account exists in the repository [Withdraw, Deposit, Balance, Statement]
+// 2. The account is not a system acount [Withdraw, Deposit]
+// 3. The account ID and email belong to the same account [Withdraw, Deposit, Balance, Statement]
+// 4. The currency is supported, ie. there exist a system account for it [CreateAccount]
+// 5. The email is of valid format [CreateAccount]
+// 6. The amount is not negative [Deposit, Withdraw]
+// 7. The account has sufficient balance for withdrawal [Withdraw]
 type validationMiddleware struct {
-	next Service
-	repo Repository
+	next     Service
+	repo     Repository
+	sysAccts map[string]snowflake.ID
 }
 
 func (v *validationMiddleware) CreateAccount(req CreateAccountReq) (*Account, error) {
+	if !emailRegex.MatchString(req.Email) {
+		return nil, ErrBadRequest{Fields: map[string]string{"email": "invalid"}}
+	}
+	if _, exists := v.sysAccts[req.Currency]; !exists {
+		return nil, ErrBadRequest{Fields: map[string]string{"currency": "unsupported"}}
+	}
 	return v.next.CreateAccount(req)
 }
 
 func (v *validationMiddleware) Deposit(req ChargeReq) (*decimal.Decimal, error) {
+	if req.Amount.IsNegative() {
+		return nil, ErrBadRequest{Fields: map[string]string{"amount": "negative"}}
+	}
+
+	for _, id := range v.sysAccts {
+		if id == req.AcctID {
+			return nil, ErrBadRequest{Fields: map[string]string{"acctID": "system account not allowed"}}
+		}
+	}
+
+	acct, err := v.repo.GetAccount(req.AcctID)
+	errnf := ErrNotFound{}
+	if err != nil && errors.As(err, &errnf) {
+		return nil, errnf
+	}
+	if acct.Email != req.Email {
+		return nil, ErrBadRequest{Fields: map[string]string{"email": "mismatch"}}
+	}
+	req.Currency = acct.Currency
+
 	return v.next.Deposit(req)
 }
 
 func (v *validationMiddleware) Withdraw(req ChargeReq) (*decimal.Decimal, error) {
+	if req.Amount.IsNegative() {
+		return nil, ErrBadRequest{Fields: map[string]string{"amount": "negative"}}
+	}
+
+	for _, id := range v.sysAccts {
+		if id == req.AcctID {
+			return nil, ErrBadRequest{Fields: map[string]string{"acctID": "system account not allowed"}}
+		}
+	}
+
+	acct, err := v.repo.GetAccount(req.AcctID)
+	errnf := ErrNotFound{}
+	if err != nil && errors.As(err, &errnf) {
+		return nil, errnf
+	}
+	if acct.Email != req.Email {
+		return nil, ErrBadRequest{Fields: map[string]string{"email": "mismatch"}}
+	}
+	if acct.Balance.LessThan(req.Amount) {
+		return nil, ErrBadRequest{Fields: map[string]string{"amount": "insufficient balance"}}
+	}
+	req.Currency = acct.Currency
+
 	return v.next.Withdraw(req)
 }
 
 func (v *validationMiddleware) Balance(req BalanceReq) (*decimal.Decimal, error) {
+	acct, err := v.repo.GetAccount(req.AcctID)
+	errnf := ErrNotFound{}
+	if err != nil && errors.As(err, &errnf) {
+		return nil, errnf
+	}
+	if acct.Email != req.Email {
+		return nil, ErrBadRequest{Fields: map[string]string{"email": "mismatch"}}
+	}
+
 	return v.next.Balance(req)
 }
 
 func (v *validationMiddleware) Statement(w io.Writer, req StatementReq) error {
+	acct, err := v.repo.GetAccount(req.AcctID)
+	errnf := ErrNotFound{}
+	if err != nil && errors.As(err, &errnf) {
+		return errnf
+	}
+	if acct.Email != req.Email {
+		return ErrBadRequest{Fields: map[string]string{"email": "mismatch"}}
+	}
+
 	return v.next.Statement(w, req)
 }
 
-func NewValidationMiddleware(repo Repository) Middleware {
+func NewValidationMiddleware(repo Repository, sysAccts map[string]snowflake.ID) Middleware {
 	return func(svc Service) Service {
 		return &validationMiddleware{
-			next: svc,
-			repo: repo,
+			next:     svc,
+			repo:     repo,
+			sysAccts: sysAccts,
 		}
 	}
 }
@@ -63,9 +145,7 @@ type limitMiddleware struct {
 	limits *ServiceLimits
 }
 
-var (
-	_ Service = (*limitMiddleware)(nil)
-)
+var _ Service = (*limitMiddleware)(nil)
 
 type ServiceLimits struct {
 	CreateAccount *semaphore.Weighted
@@ -122,9 +202,7 @@ type circuitBreakMiddleware struct {
 	brkrs *ServiceBreaker
 }
 
-var (
-	_ Service = (*circuitBreakMiddleware)(nil)
-)
+var _ Service = (*circuitBreakMiddleware)(nil)
 
 func NewCircuitBreakMiddleware(brkrs *ServiceBreaker) Middleware {
 	return func(next Service) Service {
