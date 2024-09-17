@@ -1,0 +1,6 @@
+database:
+  conn_str: postgresql://postgres:postgres@localhost:5432/bankxgo_test
+  system_accounts:
+    USD: 7241722241547767808
+    PHP: 7241722241547356502
+    EUR: 7241788881056567296
