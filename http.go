@@ -17,6 +17,10 @@ var (
 	statusOK = []byte(`{"status":"OK"}`)
 )
 
+type balanceJSONResp struct {
+	Balance decimal.Decimal `json:"balance"`
+}
+
 func NewHTTPHandler(svc Service, log *zerolog.Logger) http.Handler {
 	hndlr := &httpHandler{
 		Svc: svc,
@@ -63,14 +67,15 @@ func (h *httpHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.AcctID = acctID
-	if err = h.Svc.Deposit(req); err != nil {
+	bal, err := h.Svc.Deposit(req)
+	if err != nil {
 		WriteHTTPError(w, err)
 		return
 	}
 
+	resp := balanceJSONResp{Balance: *bal}
 	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(statusOK)
-	if err != nil {
+	if err = json.NewEncoder(w).Encode(resp); err != nil {
 		WriteHTTPError(w, err)
 	}
 }
@@ -97,14 +102,15 @@ func (h *httpHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.AcctID = acctID
-	if err = h.Svc.Withdraw(req); err != nil {
+	bal, err := h.Svc.Withdraw(req)
+	if err != nil {
 		WriteHTTPError(w, err)
 		return
 	}
 
+	resp := balanceJSONResp{Balance: *bal}
 	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(statusOK)
-	if err != nil {
+	if err = json.NewEncoder(w).Encode(resp); err != nil {
 		WriteHTTPError(w, err)
 	}
 }
@@ -134,9 +140,7 @@ func (h *httpHandler) Balance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := map[string]decimal.Decimal{
-		"balance": bal,
-	}
+	resp := balanceJSONResp{Balance: *bal}
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(resp); err != nil {
 		WriteHTTPError(w, err)

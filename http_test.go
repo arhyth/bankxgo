@@ -24,10 +24,11 @@ func TestHTTPDeposit(t *testing.T) {
 		as := assert.New(tt)
 		ctrl := gomock.NewController(tt)
 		svc := mocks.NewMockService(ctrl)
+		bal := decimal.NewFromInt(1234)
 		svc.EXPECT().
 			Deposit(gomock.AssignableToTypeOf(bankxgo.ChargeReq{})).
-			DoAndReturn(func(r bankxgo.ChargeReq) error {
-				return nil
+			DoAndReturn(func(r bankxgo.ChargeReq) (*decimal.Decimal, error) {
+				return &bal, nil
 			}).
 			Times(1)
 
@@ -42,8 +43,8 @@ func TestHTTPDeposit(t *testing.T) {
 		resp := map[string]string{}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		as.Nil(err)
-		as.Contains(resp, "status")
-		as.Equal(resp["status"], "OK")
+		as.Contains(resp, "balance")
+		as.Equal(resp["balance"], "1234")
 	})
 
 	t.Run("/accounts/{acctID}/deposit returns error on invalid account ID", func(tt *testing.T) {
@@ -59,7 +60,7 @@ func TestHTTPDeposit(t *testing.T) {
 		w := httptest.NewRecorder()
 		hndlr.ServeHTTP(w, req)
 
-		as.Equal(http.StatusBadRequest, w.Code)
+		as.Equal(http.StatusNotFound, w.Code)
 		resp := map[string]string{}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		reqrd.Nil(err)
@@ -93,10 +94,11 @@ func TestHTTPWithdraw(t *testing.T) {
 		as := assert.New(tt)
 		ctrl := gomock.NewController(tt)
 		svc := mocks.NewMockService(ctrl)
+		balance := decimal.NewFromUint64(1234)
 		svc.EXPECT().
 			Withdraw(gomock.AssignableToTypeOf(bankxgo.ChargeReq{})).
-			DoAndReturn(func(r bankxgo.ChargeReq) error {
-				return nil
+			DoAndReturn(func(r bankxgo.ChargeReq) (*decimal.Decimal, error) {
+				return &balance, nil
 			}).
 			Times(1)
 
@@ -111,8 +113,8 @@ func TestHTTPWithdraw(t *testing.T) {
 		resp := map[string]string{}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		as.Nil(err)
-		as.Contains(resp, "status")
-		as.Equal(resp["status"], "OK")
+		as.Contains(resp, "balance")
+		as.Equal(resp["balance"], "1234")
 	})
 
 	t.Run("/accounts/{acctID}/withdraw returns error on invalid account ID", func(tt *testing.T) {
@@ -128,7 +130,7 @@ func TestHTTPWithdraw(t *testing.T) {
 		w := httptest.NewRecorder()
 		hndlr.ServeHTTP(w, req)
 
-		as.Equal(http.StatusBadRequest, w.Code)
+		as.Equal(http.StatusNotFound, w.Code)
 		resp := map[string]string{}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		reqrd.Nil(err)
@@ -166,8 +168,8 @@ func TestHTTPBalance(t *testing.T) {
 		balance := decimal.NewFromFloat(123.45)
 		svc.EXPECT().
 			Balance(gomock.AssignableToTypeOf(bankxgo.BalanceReq{})).
-			DoAndReturn(func(r bankxgo.BalanceReq) (decimal.Decimal, error) {
-				return balance, nil
+			DoAndReturn(func(r bankxgo.BalanceReq) (*decimal.Decimal, error) {
+				return &balance, nil
 			}).
 			Times(1)
 

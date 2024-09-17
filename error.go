@@ -18,7 +18,7 @@ func (e ErrBadRequest) Error() string {
 }
 
 type ErrNotFound struct {
-	ID int `json:"id"`
+	ID int64 `json:"id"`
 }
 
 func (e ErrNotFound) Error() string {

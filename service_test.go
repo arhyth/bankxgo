@@ -49,7 +49,7 @@ func TestBalance(t *testing.T) {
 		userAcctCurr := "USD"
 		repo.EXPECT().
 			CreditUser(userDeposit, userAcctID, sysAccts["USD"]).
-			Return(nil)
+			Return(&userDeposit, nil)
 		svc, err := bankxgo.NewService(repo, sysAccts)
 		reqrd.Nil(err)
 
@@ -70,23 +70,8 @@ func TestBalance(t *testing.T) {
 			Email:    userEmail,
 			Currency: userAcctCurr,
 		}
-		_, err = svc.Deposit(dep)
+		bal, err := svc.Deposit(dep)
 		reqrd.Nil(err)
-
-		usrAcct := &bankxgo.Account{
-			AcctID:   userAcctID,
-			Balance:  userDeposit,
-			Currency: userAcctCurr,
-		}
-		repo.EXPECT().
-			GetAccount(acr.AcctID).
-			Return(usrAcct, nil)
-		req := bankxgo.BalanceReq{
-			AcctID: userAcctID,
-			Email:  userEmail,
-		}
-		bal, err := svc.Balance(req)
-		reqrd.Nil(err)
-		as.Equal(userDeposit, bal)
+		as.Equal(userDeposit, *bal)
 	})
 }

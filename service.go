@@ -1,7 +1,6 @@
 package bankxgo
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/bwmarrin/snowflake"
@@ -13,6 +12,7 @@ type Account struct {
 	// refers to the public id of the account (as opposed to its BIGINT id)
 	// hence named `pub_id` column in the database
 	AcctID   snowflake.ID
+	Email    string
 	Currency string
 	Balance  decimal.Decimal
 }
@@ -52,28 +52,28 @@ type Service interface {
 
 func NewService(
 	repo Repository,
-	system_accts map[string]snowflake.ID,
+	sysAccts map[string]snowflake.ID,
 ) (*serviceImpl, error) {
-	for c, id := range system_accts {
+	for c, id := range sysAccts {
 		a, err := repo.GetAccount(id)
 		if err != nil {
 			return nil, err
 		}
 		if a.Currency != c {
-			return nil, fmt.Errorf("provided system account %v for currency %s does not match records", id, c)
+			return nil, ErrNotFound{ID: id.Int64()}
 		}
 	}
 
-	// hardcoded for "simplicity", but this should be seeded by data from
-	// the node environment like an EC2 machine identifier or something
+	// hardcoded for "simplicity", but in a real world service this should be
+	// seeded with data from the node environment, ie., EC2 identifier
 	node, err := snowflake.NewNode(888)
 	if err != nil {
 		return nil, err
 	}
 	svc := &serviceImpl{
-		repo:         repo,
-		system_accts: system_accts,
-		node:         node,
+		repo:     repo,
+		sysAccts: sysAccts,
+		node:     node,
 	}
 	return svc, nil
 }
@@ -83,13 +83,12 @@ var (
 )
 
 type serviceImpl struct {
-	repo         Repository
-	system_accts map[string]snowflake.ID
-	node         *snowflake.Node
+	repo     Repository
+	sysAccts map[string]snowflake.ID
+	node     *snowflake.Node
 }
 
 func (s *serviceImpl) CreateAccount(req CreateAccountReq) (*Account, error) {
-	// TODO: add middleware to check if currency is supported
 	req.AcctID = s.node.Generate()
 	err := s.repo.CreateAccount(req)
 	if err != nil {
@@ -103,18 +102,12 @@ func (s *serviceImpl) CreateAccount(req CreateAccountReq) (*Account, error) {
 }
 
 func (s *serviceImpl) Deposit(req ChargeReq) (*decimal.Decimal, error) {
-	// TODO: implement this check in middleware
-	sysAcct, exists := s.system_accts[req.Currency]
-	if !exists {
-		return nil, ErrBadRequest{Fields: map[string]string{"currency": "unsupported"}}
-	}
-	bal, err := s.repo.CreditUser(req.Amount, req.AcctID, sysAcct)
+	bal, err := s.repo.CreditUser(req.Amount, req.AcctID, s.sysAccts[req.Currency])
 	return bal, err
 }
 
 func (s *serviceImpl) Withdraw(req ChargeReq) (*decimal.Decimal, error) {
-	sysAcct := s.system_accts[req.Currency]
-	bal, err := s.repo.DebitUser(req.Amount, req.AcctID, sysAcct)
+	bal, err := s.repo.DebitUser(req.Amount, req.AcctID, s.sysAccts[req.Currency])
 	return bal, err
 }
 

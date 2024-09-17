@@ -114,7 +114,8 @@ func (pg *PostgresEndpoint) CreditUser(
 		return nil, err
 	}
 
-	if _, err = tx.Exec(ctx, pgUpdateAcctSQL, bal.Add(amount), userAcct); err != nil {
+	newbal := bal.Add(amount)
+	if _, err = tx.Exec(ctx, pgUpdateAcctSQL, newbal, userAcct); err != nil {
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			pg.log.Err(rerr).Msgf("transaction `%v` rollback fail", itxn)
 		}
@@ -125,7 +126,7 @@ func (pg *PostgresEndpoint) CreditUser(
 		pg.log.Err(err).Msg("CreditUser: transaction commit fail")
 	}
 
-	return nil, err
+	return &newbal, err
 }
 
 func (pg *PostgresEndpoint) DebitUser(
@@ -178,7 +179,8 @@ func (pg *PostgresEndpoint) DebitUser(
 		return nil, ErrBadRequest{Fields: map[string]string{"amount": "insufficient balance"}}
 	}
 
-	if _, err = tx.Exec(ctx, pgUpdateAcctSQL, bal.Add(amount.Neg()), userAcct); err != nil {
+	newbal := bal.Add(amount.Neg())
+	if _, err = tx.Exec(ctx, pgUpdateAcctSQL, newbal, userAcct); err != nil {
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			pg.log.Err(rerr).Msgf("transaction `%v` rollback fail", itxn)
 		}
@@ -189,7 +191,7 @@ func (pg *PostgresEndpoint) DebitUser(
 		pg.log.Err(err).Msg("DebitUser: transaction commit fail")
 	}
 
-	return nil, err
+	return &newbal, err
 }
 
 func (pg *PostgresEndpoint) CreateAccount(req CreateAccountReq) error {
@@ -233,7 +235,7 @@ func (pg *PostgresEndpoint) GetAccount(id snowflake.ID) (*Account, error) {
 	)
 	if err = row.Scan(&rcur, &rbal); err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, ErrNotFound{}
+			return nil, ErrNotFound{ID: id.Int64()}
 		}
 		return nil, err
 	}
