@@ -115,6 +115,47 @@ Response:
 }
 ```
 
+## Local Development
+1. Spin up a fresh Postgres database instance however you like
+2. Configure database connection string appropriately, see [`config.yml`](config.yml)
+3. Set up system accounts for each currency to be supported. Input valid Snowflake ID for each. You can grab some outputs from any online snowflake ID generator. Also, see [`config.yml`](config.yml).
+4. Build [`cmd/seeder/main.go`](cmd/seeder/main.go) and run it. This should create system accounts for the entries you configured in `config.yml`.  
+```
+go build -o seeder cmd/seeder/main.go
+./seeder --config=config.yml
+```
+5. Build [`cmd/server/main.go`](cmd/server/main.go) and run it.  
+```
+go build -o seeder cmd/seeder/main.go
+./server --config=config.yml
+```
+6. Profit! (maybe)  
+Create an account.  
+```sh
+curl -X POST http://localhost:3000/accounts/ \
+-H "Content-Type: application/json" \
+-d '{"email": "boy@bawang.com", "currency": "PHP"}'
+
+{"acctID":"1836378168910905344"}
+```
+Keep some moolah.  
+```sh
+curl -X POST http://localhost:3000/accounts/1836378168910905344/deposit \
+-H "Content-Type: application/json" -H "email: boy@bawang.com" \
+-d '{"amount": 800}'
+
+{"balance":"800"}  
+```
+&nbsp;&nbsp;&nbsp;&nbsp;Check your bizniz!  
+```sh
+curl -H "email:boy@bawang.com" -o fetched.pdf http://localhost:3000/accounts/1836378168910905344/statement
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1735  100  1735    0     0   110k      0 --:--:-- --:--:-- --:--:--  338k
+```
+
+
 ## Data Model | Architecture Notes
 ![data model](bankxgo_flow.svg)
 1. Uses debit/credit book keeping
@@ -139,8 +180,7 @@ Response:
 - [x] balance method and endpoint  
 - [x] tests  
 - [x] statement method and endpoint  
-- [ ] middleware to limit in-flight requests (use x/sync/semaphore)  
-- [ ] middleware circuitbreaker  
+- [x] middleware rate limiter
 - [ ] tests  
 - [x] middleware for input validation 
 - [x] tests  

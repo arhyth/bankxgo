@@ -1,6 +1,29 @@
 database:
-  conn_str: postgresql://postgres:postgres@localhost:5432/bankxgo
-  system_accounts:
-    USD: 7241722241547767808
-    PHP: 7241722241547356502
-    EUR: 7241788881056567296
+  conn_str: postgresql://postgres:postgres@localhost:5432/bankxgot
+
+system_accounts:
+  USD: 7241722241547767808
+  PHP: 7241722241547356502
+  EUR: 7241788881056567296
+
+service_limits:
+  create_account:
+    slo_ms: 300
+    rate: 10
+    burst: 40
+  deposit:
+    slo_ms: 300
+    rate: 10
+    burst: 40
+  withdraw:
+    slo_ms: 300
+    rate: 10
+    burst: 40
+  balance:
+    slo_ms: 300
+    rate: 20
+    burst: 40
+  statement:
+    slo_ms: 1200
+    rate: 5
+    burst: 10

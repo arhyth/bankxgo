@@ -6,7 +6,8 @@ import (
 )
 
 var (
-	ErrInternalServer = errors.New("internal server error")
+	ErrInternalServer     = errors.New("internal server error")
+	ErrServiceUnavailable = errors.New("service unavailable")
 )
 
 type ErrBadRequest struct {
