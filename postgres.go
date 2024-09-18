@@ -97,7 +97,7 @@ func (pg *PostgresEndpoint) CreditUser(
 		return nil, err
 	}
 
-	row := tx.QueryRow(ctx, pgInsertTxnSQL, "deposit")
+	row := tx.QueryRow(ctx, pgInsertTxnSQL, "withdrawal")
 	var itxn int64
 	if err = row.Scan(&itxn); err != nil {
 		return nil, err
@@ -129,7 +129,14 @@ func (pg *PostgresEndpoint) CreditUser(
 		return nil, err
 	}
 
-	newbal := bal.Add(amount)
+	if bal.LessThan(amount) {
+		if err = tx.Rollback(ctx); err != nil {
+			pg.log.Err(err).Msgf("transaction `%v` rollback fail", itxn)
+		}
+		return nil, ErrBadRequest{Fields: map[string]string{"amount": "insufficient balance"}}
+	}
+
+	newbal := bal.Sub(amount)
 	if _, err = tx.Exec(ctx, pgUpdateAcctSQL, newbal, userAcct); err != nil {
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			pg.log.Err(rerr).Msgf("transaction `%v` rollback fail", itxn)
@@ -167,7 +174,7 @@ func (pg *PostgresEndpoint) DebitUser(
 		return nil, err
 	}
 
-	row := tx.QueryRow(ctx, pgInsertTxnSQL, "withdrawal")
+	row := tx.QueryRow(ctx, pgInsertTxnSQL, "deposit")
 	var itxn int64
 	if err = row.Scan(&itxn); err != nil {
 		return nil, err
@@ -199,14 +206,7 @@ func (pg *PostgresEndpoint) DebitUser(
 		return nil, err
 	}
 
-	if bal.LessThan(amount) {
-		if err = tx.Rollback(ctx); err != nil {
-			pg.log.Err(err).Msgf("transaction `%v` rollback fail", itxn)
-		}
-		return nil, ErrBadRequest{Fields: map[string]string{"amount": "insufficient balance"}}
-	}
-
-	newbal := bal.Add(amount.Neg())
+	newbal := bal.Add(amount)
 	if _, err = tx.Exec(ctx, pgUpdateAcctSQL, newbal, userAcct); err != nil {
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			pg.log.Err(rerr).Msgf("transaction `%v` rollback fail", itxn)

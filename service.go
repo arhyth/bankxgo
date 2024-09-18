@@ -109,7 +109,7 @@ func (s *serviceImpl) CreateAccount(req CreateAccountReq) (*Account, error) {
 }
 
 func (s *serviceImpl) Deposit(req ChargeReq) (*decimal.Decimal, error) {
-	bal, err := s.repo.CreditUser(req.Amount, req.AcctID, s.sysAccts[req.Currency])
+	bal, err := s.repo.DebitUser(req.Amount, req.AcctID, s.sysAccts[req.Currency])
 	if err != nil {
 		s.log.Error().Err(err).Msg("Deposit failed")
 		return nil, err
@@ -118,7 +118,7 @@ func (s *serviceImpl) Deposit(req ChargeReq) (*decimal.Decimal, error) {
 }
 
 func (s *serviceImpl) Withdraw(req ChargeReq) (*decimal.Decimal, error) {
-	bal, err := s.repo.DebitUser(req.Amount, req.AcctID, s.sysAccts[req.Currency])
+	bal, err := s.repo.CreditUser(req.Amount, req.AcctID, s.sysAccts[req.Currency])
 	if err != nil {
 		s.log.Error().Err(err).Msg("Withdraw failed")
 		return nil, err
@@ -194,11 +194,11 @@ func (s *serviceImpl) Statement(w io.Writer, req StatementReq) error {
 		if charge.Typ == "credit" {
 			debitStr = ""
 			creditStr = charge.Amount.StringFixed(2)
-			balance = balance.Add(charge.Amount)
+			balance = balance.Sub(charge.Amount)
 		} else {
 			creditStr = ""
 			debitStr = charge.Amount.StringFixed(2)
-			balance = balance.Sub(charge.Amount)
+			balance = balance.Add(charge.Amount)
 		}
 		pdf.Cell(20, 6, "")
 		pdf.CellFormat(30, 6, dateStr, "", 0, "C", false, 0, "")
@@ -216,11 +216,11 @@ func (s *serviceImpl) Statement(w io.Writer, req StatementReq) error {
 	if charge.Typ == "credit" {
 		debitStr = ""
 		creditStr = charge.Amount.StringFixed(2)
-		balance = balance.Add(charge.Amount)
+		balance = balance.Sub(charge.Amount)
 	} else {
 		creditStr = ""
 		debitStr = charge.Amount.StringFixed(2)
-		balance = balance.Sub(charge.Amount)
+		balance = balance.Add(charge.Amount)
 	}
 	pdf.Cell(20, 6, "")
 	pdf.CellFormat(30, 6, dateStr, "", 0, "C", false, 0, "")

@@ -49,7 +49,7 @@ func TestPostgres(t *testing.T) {
 	endpt, err := bankxgo.NewPostgresEndpoint(cfg.Database.ConnStr, &log)
 	reqrd.Nil(err)
 
-	t.Run("CreditUser", func(tt *testing.T) {
+	t.Run("DebitUser", func(tt *testing.T) {
 		car := bankxgo.CreateAccountReq{
 			Email:    "arhyth@gmail.com",
 			Currency: "USD",
@@ -59,7 +59,7 @@ func TestPostgres(t *testing.T) {
 		reqrd.Nil(err)
 
 		amount := decimal.New(123, 0)
-		cbal, err := endpt.CreditUser(amount, car.AcctID, lh.SysAccts[car.Currency])
+		cbal, err := endpt.DebitUser(amount, car.AcctID, lh.SysAccts[car.Currency])
 		reqrd.Nil(err)
 		retrieved, err := endpt.GetAccount(car.AcctID)
 		reqrd.Nil(err)
@@ -67,7 +67,7 @@ func TestPostgres(t *testing.T) {
 		as.Equal(amount, retrieved.Balance)
 	})
 
-	t.Run("DebitUser returns error on insufficient balance", func(tt *testing.T) {
+	t.Run("CreditUser returns error on insufficient balance", func(tt *testing.T) {
 		car := bankxgo.CreateAccountReq{
 			Email:    "poor@guy.com",
 			Currency: "PHP",
@@ -77,8 +77,28 @@ func TestPostgres(t *testing.T) {
 		reqrd.Nil(err)
 
 		amount := decimal.New(5000, 0)
-		bal, err := endpt.DebitUser(amount, car.AcctID, lh.SysAccts[car.Currency])
+		bal, err := endpt.CreditUser(amount, car.AcctID, lh.SysAccts[car.Currency])
 		reqrd.ErrorAs(err, &bankxgo.ErrBadRequest{})
 		as.Nil(bal)
+	})
+
+	t.Run("CreditUser returns newly credited balance on success", func(tt *testing.T) {
+		car := bankxgo.CreateAccountReq{
+			Email:    "user@credit.com",
+			Currency: "PHP",
+			AcctID:   node.Generate(),
+		}
+		endpt.CreateAccount(car)
+		reqrd.Nil(err)
+
+		deposit := decimal.New(5000, 0)
+		bal, err := endpt.DebitUser(deposit, car.AcctID, lh.SysAccts[car.Currency])
+		reqrd.Nil(err)
+		reqrd.Equal(deposit, *bal)
+
+		wdraw := decimal.New(3000, 0)
+		newbal, err := endpt.CreditUser(wdraw, car.AcctID, lh.SysAccts[car.Currency])
+		reqrd.Nil(err)
+		reqrd.Equal(deposit.Sub(wdraw), *newbal)
 	})
 }
