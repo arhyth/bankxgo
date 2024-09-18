@@ -138,7 +138,7 @@ Response:
 - [x] tests  
 - [x] balance method and endpoint  
 - [x] tests  
-- [ ] statement method and endpoint  
+- [x] statement method and endpoint  
 - [ ] middleware to limit in-flight requests (use x/sync/semaphore)  
 - [ ] middleware circuitbreaker  
 - [ ] tests  

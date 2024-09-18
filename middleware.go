@@ -62,6 +62,10 @@ func (v *validationMiddleware) Deposit(req ChargeReq) (*decimal.Decimal, error) 
 	if acct.Email != req.Email {
 		return nil, ErrBadRequest{Fields: map[string]string{"email": "mismatch"}}
 	}
+	// this should not happen unless a system account for the currency is removed
+	if _, exists := v.sysAccts[acct.Currency]; !exists {
+		return nil, ErrInternalServer
+	}
 	req.Currency = acct.Currency
 
 	return v.next.Deposit(req)
@@ -88,6 +92,10 @@ func (v *validationMiddleware) Withdraw(req ChargeReq) (*decimal.Decimal, error)
 	}
 	if acct.Balance.LessThan(req.Amount) {
 		return nil, ErrBadRequest{Fields: map[string]string{"amount": "insufficient balance"}}
+	}
+	// this should not happen unless a system account for the currency is removed
+	if _, exists := v.sysAccts[acct.Currency]; !exists {
+		return nil, ErrInternalServer
 	}
 	req.Currency = acct.Currency
 

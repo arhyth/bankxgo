@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package bankxgo_test
 
 import (
@@ -12,6 +15,7 @@ import (
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/jackc/pgx/v5"
+	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,7 +47,8 @@ func TestPostgres(t *testing.T) {
 	accts, err := tst.prepareSystemAccounts(conn, "USD", "PHP", "EUR")
 	as.Nil(err)
 
-	endpt, err := bankxgo.NewPostgresEndpoint(testDBConnStr)
+	log := zerolog.Nop()
+	endpt, err := bankxgo.NewPostgresEndpoint(testDBConnStr, &log)
 	reqrd.Nil(err)
 
 	t.Run("CreditUser", func(tt *testing.T) {

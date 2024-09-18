@@ -26,7 +26,7 @@ func main() {
 		logger.Fatal().Err(err).Msg("error decoding config file")
 	}
 
-	pgendpt, err := bankxgo.NewPostgresEndpoint(cfg.Database.ConnectionString)
+	pgendpt, err := bankxgo.NewPostgresEndpoint(cfg.Database.ConnectionString, &logger)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("error starting database")
 	}
@@ -43,10 +43,12 @@ func main() {
 		sysAccts[c] = id
 	}
 
-	svc, err := bankxgo.NewService(pgendpt, sysAccts)
+	svc, err := bankxgo.NewService(pgendpt, sysAccts, &logger)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("error starting service")
 	}
+	mw := bankxgo.NewValidationMiddleware(pgendpt, sysAccts)
+	svc = mw(svc)
 	hndlr := bankxgo.NewHTTPHandler(svc, &logger)
 
 	http.ListenAndServe(":3000", hndlr)

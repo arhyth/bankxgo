@@ -7,6 +7,7 @@ toolchain go1.22.7
 require (
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/go-chi/chi/v5 v5.1.0
+	github.com/go-pdf/fpdf v0.9.0
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/rs/zerolog v1.33.0
 	github.com/shopspring/decimal v1.4.0

@@ -3,6 +3,7 @@ package bankxgo
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -11,10 +12,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/shopspring/decimal"
-)
-
-var (
-	statusOK = []byte(`{"status":"OK"}`)
 )
 
 type balanceJSONResp struct {
@@ -29,6 +26,7 @@ func NewHTTPHandler(svc Service, log *zerolog.Logger) http.Handler {
 	mux := chi.NewMux()
 	mux.NotFound(HTTPNotFound)
 	mux.Route("/accounts", func(r chi.Router) {
+		r.Post("/", hndlr.CreateAccount)
 		r.Route("/{acctID:[0-9]+}", func(rr chi.Router) {
 			rr.Post("/deposit", hndlr.Deposit)
 			rr.Post("/withdraw", hndlr.Withdraw)
@@ -161,18 +159,40 @@ func (h *httpHandler) Statement(w http.ResponseWriter, r *http.Request) {
 		WriteHTTPError(w, ErrBadRequest{map[string]string{"acctID": "invalid format"}})
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/pdf")
 	req := StatementReq{
 		AcctID: acctID,
 		Email:  email,
 	}
-	if err = h.Svc.Statement(w, req); err != nil {
+	if err := h.Svc.Statement(w, req); err != nil {
+		WriteHTTPError(w, err)
+	}
+}
+
+func (h *httpHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
+	buf, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		h.Log.Err(err).Str("method", "createAccount").Msg("error reading HTTP request")
+		WriteHTTPError(w, ErrInternalServer)
+		return
+	}
+	var req CreateAccountReq
+	if err = json.Unmarshal(buf, &req); err != nil {
+		h.Log.Err(err).Str("method", "createAccount").Msg("error unmarshalling JSON")
+		WriteHTTPError(w, ErrBadRequest{Fields: map[string]string{"request body": "malformed JSON"}})
+		return
+	}
+	acct, err := h.Svc.CreateAccount(req)
+	if err != nil {
 		WriteHTTPError(w, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/pdf")
-	_, err = w.Write(statusOK)
-	if err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if err = json.NewEncoder(w).Encode(acct); err != nil {
 		WriteHTTPError(w, err)
 	}
 }
@@ -209,7 +229,7 @@ func HTTPNotFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	w.Header().Set("Content-Type", "application/json")
 	resp := map[string]string{
-		"path": r.URL.Path,
+		"path": fmt.Sprintf("%s %s", r.Method, r.URL.Path),
 	}
 	json.NewEncoder(w).Encode(resp)
 }

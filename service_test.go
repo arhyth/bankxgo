@@ -6,6 +6,7 @@ import (
 	"github.com/arhyth/bankxgo"
 	"github.com/arhyth/bankxgo/mocks"
 	"github.com/bwmarrin/snowflake"
+	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,10 +21,11 @@ func TestNewService(t *testing.T) {
 		sysAccts := map[string]snowflake.ID{
 			"USD": snowflake.ParseInt64(7241301734201495552),
 		}
+		log := zerolog.Nop()
 		repo.EXPECT().
 			GetAccount(sysAccts["USD"]).
 			Return(nil, bankxgo.ErrNotFound{})
-		_, err := bankxgo.NewService(repo, sysAccts)
+		_, err := bankxgo.NewService(repo, sysAccts, &log)
 		as.NotNil(err)
 	})
 }
@@ -50,7 +52,8 @@ func TestBalance(t *testing.T) {
 		repo.EXPECT().
 			CreditUser(userDeposit, userAcctID, sysAccts["USD"]).
 			Return(&userDeposit, nil)
-		svc, err := bankxgo.NewService(repo, sysAccts)
+		log := zerolog.Nop()
+		svc, err := bankxgo.NewService(repo, sysAccts, &log)
 		reqrd.Nil(err)
 
 		repo.EXPECT().

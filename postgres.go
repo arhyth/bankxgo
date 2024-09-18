@@ -2,6 +2,8 @@ package bankxgo
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/jackc/pgx/v5"
@@ -50,7 +52,7 @@ var (
 	_ Repository = (*PostgresEndpoint)(nil)
 )
 
-func NewPostgresEndpoint(connStr string) (*PostgresEndpoint, error) {
+func NewPostgresEndpoint(connStr string, log *zerolog.Logger) (*PostgresEndpoint, error) {
 	cfg, err := pgxpool.ParseConfig(connStr)
 	if err != nil {
 		return nil, err
@@ -67,6 +69,7 @@ func NewPostgresEndpoint(connStr string) (*PostgresEndpoint, error) {
 
 	endpt := &PostgresEndpoint{
 		pool: pool,
+		log:  log,
 	}
 	return endpt, err
 }
@@ -76,6 +79,12 @@ func (pg *PostgresEndpoint) CreditUser(
 	userAcct,
 	sysAcct snowflake.ID,
 ) (*decimal.Decimal, error) {
+	// smoke test in case the service validation middleware
+	// somehow is not wired up correctly
+	if sysAcct == 0 {
+		return nil, ErrInternalServer
+	}
+
 	ctx := context.Background()
 	conn, err := pg.pool.Acquire(ctx)
 	if err != nil {
@@ -94,19 +103,25 @@ func (pg *PostgresEndpoint) CreditUser(
 		return nil, err
 	}
 
-	batch := &pgx.Batch{}
-	batch.Queue(pgDebitChargeSQL, amount, itxn, sysAcct)
-	batch.Queue(pgCreditChargeSQL, amount, itxn, userAcct)
-	btresults := tx.SendBatch(ctx, batch)
-	for i := 0; i < 2; i++ {
-		if _, err = btresults.Exec(); err != nil {
-			if rerr := tx.Rollback(ctx); rerr != nil {
-				pg.log.Err(rerr).Msgf("transaction `%v` rollback fail", itxn)
-			}
-			return nil, err
+	if _, err = tx.Exec(ctx, pgDebitChargeSQL, amount, itxn, sysAcct); err != nil {
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			pg.log.
+				Err(rerr).
+				Str("sql", "pgDebitChargeSQL").
+				Msgf("transaction `%v` rollback fail", itxn)
 		}
+		return nil, fmt.Errorf("pgDebitChargeSQL: %w", err)
 	}
-	btresults.Close()
+
+	if _, err = tx.Exec(ctx, pgCreditChargeSQL, amount, itxn, userAcct); err != nil {
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			pg.log.
+				Err(rerr).
+				Str("sql", "pgCreditChargeSQL").
+				Msgf("transaction `%v` rollback fail", itxn)
+		}
+		return nil, fmt.Errorf("pgCreditChargeSQL: %w", err)
+	}
 
 	row = tx.QueryRow(ctx, pgSelectForUpdateAcctSQL, userAcct)
 	var bal decimal.Decimal
@@ -134,6 +149,12 @@ func (pg *PostgresEndpoint) DebitUser(
 	userAcct,
 	sysAcct snowflake.ID,
 ) (*decimal.Decimal, error) {
+	// smoke test in case the service validation middleware
+	// somehow is not wired up correctly
+	if sysAcct == 0 {
+		return nil, ErrInternalServer
+	}
+
 	ctx := context.Background()
 	conn, err := pg.pool.Acquire(ctx)
 	if err != nil {
@@ -152,19 +173,25 @@ func (pg *PostgresEndpoint) DebitUser(
 		return nil, err
 	}
 
-	batch := &pgx.Batch{}
-	batch.Queue(pgDebitChargeSQL, amount, itxn, userAcct)
-	batch.Queue(pgCreditChargeSQL, amount, itxn, sysAcct)
-	btresults := tx.SendBatch(ctx, batch)
-	for i := 0; i < 2; i++ {
-		if _, err = btresults.Exec(); err != nil {
-			if rerr := tx.Rollback(ctx); rerr != nil {
-				pg.log.Err(rerr).Msgf("transaction `%v` rollback fail", itxn)
-			}
-			return nil, err
+	if _, err = tx.Exec(ctx, pgDebitChargeSQL, amount, itxn, userAcct); err != nil {
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			pg.log.
+				Err(rerr).
+				Str("sql", "pgDebitChargeSQL").
+				Msgf("transaction `%v` rollback fail", itxn)
 		}
+		return nil, fmt.Errorf("pgDebitChargeSQL: %w", err)
 	}
-	btresults.Close()
+
+	if _, err = tx.Exec(ctx, pgCreditChargeSQL, amount, itxn, sysAcct); err != nil {
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			pg.log.
+				Err(rerr).
+				Str("sql", "pgCreditChargeSQL").
+				Msgf("transaction `%v` rollback fail", itxn)
+		}
+		return nil, fmt.Errorf("pgCreditChargeSQL: %w", err)
+	}
 
 	row = tx.QueryRow(ctx, pgSelectForUpdateAcctSQL, userAcct)
 	var bal decimal.Decimal
@@ -223,17 +250,17 @@ func (pg *PostgresEndpoint) GetAccount(id snowflake.ID) (*Account, error) {
 	defer conn.Release()
 
 	sql := `
-	SELECT currency, balance
+	SELECT email, currency, balance
 	FROM accounts
 	WHERE pub_id = $1;
 	`
 
 	row := conn.QueryRow(ctx, sql, id)
 	var (
-		rcur string
-		rbal decimal.Decimal
+		rcur, remail string
+		rbal         decimal.Decimal
 	)
-	if err = row.Scan(&rcur, &rbal); err != nil {
+	if err = row.Scan(&remail, &rcur, &rbal); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, ErrNotFound{ID: id.Int64()}
 		}
@@ -244,6 +271,44 @@ func (pg *PostgresEndpoint) GetAccount(id snowflake.ID) (*Account, error) {
 		AcctID:   id,
 		Currency: rcur,
 		Balance:  rbal,
+		Email:    remail,
 	}
 	return acct, err
+}
+
+func (pg *PostgresEndpoint) GetAccountCharges(id snowflake.ID) ([]Charge, error) {
+	ctx := context.Background()
+	conn, err := pg.pool.Acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
+	sql := `
+	SELECT amount, typ, created_at FROM charges
+	WHERE acct_id = $1;
+	`
+	rows, err := conn.Query(ctx, sql, id)
+	if err != nil {
+		return nil, err
+	}
+	var (
+		amt       decimal.Decimal
+		typ       string
+		createdAt time.Time
+		collected []Charge
+	)
+	for rows.Next() {
+		rows.Scan(&amt, &typ, &createdAt)
+		collected = append(collected, Charge{
+			Amount:    amt,
+			Typ:       typ,
+			CreatedAt: createdAt,
+		})
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("charges rows.Scan: %w", err)
+	}
+
+	return collected, err
 }

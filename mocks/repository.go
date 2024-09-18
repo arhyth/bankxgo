@@ -99,3 +99,18 @@ func (mr *MockRepositoryMockRecorder) GetAccount(id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccount", reflect.TypeOf((*MockRepository)(nil).GetAccount), id)
 }
+
+// GetAccountCharges mocks base method.
+func (m *MockRepository) GetAccountCharges(id snowflake.ID) ([]bankxgo.Charge, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAccountCharges", id)
+	ret0, _ := ret[0].([]bankxgo.Charge)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAccountCharges indicates an expected call of GetAccountCharges.
+func (mr *MockRepositoryMockRecorder) GetAccountCharges(id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountCharges", reflect.TypeOf((*MockRepository)(nil).GetAccountCharges), id)
+}
