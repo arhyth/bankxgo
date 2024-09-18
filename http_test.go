@@ -20,7 +20,7 @@ import (
 func TestHTTPDeposit(t *testing.T) {
 	nooplog := zerolog.Nop()
 
-	t.Run("Deposit returns OK on success", func(tt *testing.T) {
+	t.Run("returns OK on success", func(tt *testing.T) {
 		as := assert.New(tt)
 		ctrl := gomock.NewController(tt)
 		svc := mocks.NewMockService(ctrl)
@@ -65,6 +65,26 @@ func TestHTTPDeposit(t *testing.T) {
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		reqrd.Nil(err)
 		as.Contains(resp, "path")
+	})
+
+	t.Run("/accounts/{acctID}/deposit returns error on missing email header", func(tt *testing.T) {
+		as := assert.New(tt)
+		reqrd := require.New(tt)
+		ctrl := gomock.NewController(t)
+		svc := mocks.NewMockService(ctrl)
+		hndlr := bankxgo.NewHTTPHandler(svc, &nooplog)
+
+		body := bytes.NewBufferString(`{"amount":1234.00}`)
+		req := httptest.NewRequest(http.MethodPost, "/accounts/6394172224154735657/deposit", body)
+		w := httptest.NewRecorder()
+		hndlr.ServeHTTP(w, req)
+
+		as.Equal(http.StatusBadRequest, w.Code)
+		resp := map[string]map[string]string{}
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		reqrd.Nil(err)
+		as.Contains(resp, "fields")
+		as.Contains(resp["fields"], "email")
 	})
 
 	t.Run("/accounts/{acctID}/deposit returns error on malformed request body", func(tt *testing.T) {
@@ -135,6 +155,26 @@ func TestHTTPWithdraw(t *testing.T) {
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		reqrd.Nil(err)
 		as.Contains(resp, "path")
+	})
+
+	t.Run("/accounts/{acctID}/withdraw returns error on missing email header", func(tt *testing.T) {
+		as := assert.New(tt)
+		reqrd := require.New(tt)
+		ctrl := gomock.NewController(t)
+		svc := mocks.NewMockService(ctrl)
+		hndlr := bankxgo.NewHTTPHandler(svc, &nooplog)
+
+		body := bytes.NewBufferString(`{"amount":1234.00}`)
+		req := httptest.NewRequest(http.MethodPost, "/accounts/6394172224154735657/withdraw", body)
+		w := httptest.NewRecorder()
+		hndlr.ServeHTTP(w, req)
+
+		as.Equal(http.StatusBadRequest, w.Code)
+		resp := map[string]map[string]string{}
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		reqrd.Nil(err)
+		as.Contains(resp, "fields")
+		as.Contains(resp["fields"], "email")
 	})
 
 	t.Run("/accounts/{acctID}/withdraw returns error on malformed request body", func(tt *testing.T) {

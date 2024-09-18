@@ -18,6 +18,10 @@ type balanceJSONResp struct {
 	Balance decimal.Decimal `json:"balance"`
 }
 
+type genericErrResp struct {
+	Err string `json:"error"`
+}
+
 func NewHTTPHandler(svc Service, log *zerolog.Logger) http.Handler {
 	hndlr := &httpHandler{
 		Svc: svc,
@@ -44,6 +48,13 @@ type httpHandler struct {
 }
 
 func (h *httpHandler) Deposit(w http.ResponseWriter, r *http.Request) {
+	email := r.Header.Get("email")
+	if email == "" {
+		h.Log.Error().Str("method", "balance").Msg("missing/invalid email")
+		WriteHTTPError(w, ErrBadRequest{map[string]string{"email": "missing or invalid"}})
+		return
+	}
+
 	buf, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
@@ -65,6 +76,7 @@ func (h *httpHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.AcctID = acctID
+	req.Email = email
 	bal, err := h.Svc.Deposit(req)
 	if err != nil {
 		WriteHTTPError(w, err)
@@ -79,6 +91,13 @@ func (h *httpHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *httpHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
+	email := r.Header.Get("email")
+	if email == "" {
+		h.Log.Error().Str("method", "balance").Msg("missing/invalid email")
+		WriteHTTPError(w, ErrBadRequest{map[string]string{"email": "missing or invalid"}})
+		return
+	}
+
 	buf, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
@@ -100,6 +119,7 @@ func (h *httpHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.AcctID = acctID
+	req.Email = email
 	bal, err := h.Svc.Withdraw(req)
 	if err != nil {
 		WriteHTTPError(w, err)
@@ -216,11 +236,13 @@ func WriteHTTPError(w http.ResponseWriter, err error) {
 	} else if errors.As(err, errbr) {
 		w.WriteHeader(http.StatusBadRequest)
 		ne = json.NewEncoder(w).Encode(errbr)
+	} else if err == ErrServiceUnavailable {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		resp := genericErrResp{Err: "service unavailable"}
+		ne = json.NewEncoder(w).Encode(resp)
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
-		resp := map[string]string{
-			"message": "server error",
-		}
+		resp := genericErrResp{Err: "internal server error"}
 		ne = json.NewEncoder(w).Encode(resp)
 	}
 }
