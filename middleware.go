@@ -1,14 +1,14 @@
 package bankxgo
 
 import (
-	"errors"
+	"context"
 	"io"
 	"regexp"
+	"time"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/shopspring/decimal"
-	"github.com/sony/gobreaker/v2"
-	"golang.org/x/sync/semaphore"
+	"golang.org/x/time/rate"
 )
 
 var (
@@ -55,9 +55,8 @@ func (v *validationMiddleware) Deposit(req ChargeReq) (*decimal.Decimal, error) 
 	}
 
 	acct, err := v.repo.GetAccount(req.AcctID)
-	errnf := ErrNotFound{}
-	if err != nil && errors.As(err, &errnf) {
-		return nil, errnf
+	if err != nil {
+		return nil, err
 	}
 	if acct.Email != req.Email {
 		return nil, ErrBadRequest{Fields: map[string]string{"email": "mismatch"}}
@@ -83,9 +82,8 @@ func (v *validationMiddleware) Withdraw(req ChargeReq) (*decimal.Decimal, error)
 	}
 
 	acct, err := v.repo.GetAccount(req.AcctID)
-	errnf := ErrNotFound{}
-	if err != nil && errors.As(err, &errnf) {
-		return nil, errnf
+	if err != nil {
+		return nil, err
 	}
 	if acct.Email != req.Email {
 		return nil, ErrBadRequest{Fields: map[string]string{"email": "mismatch"}}
@@ -104,9 +102,8 @@ func (v *validationMiddleware) Withdraw(req ChargeReq) (*decimal.Decimal, error)
 
 func (v *validationMiddleware) Balance(req BalanceReq) (*decimal.Decimal, error) {
 	acct, err := v.repo.GetAccount(req.AcctID)
-	errnf := ErrNotFound{}
-	if err != nil && errors.As(err, &errnf) {
-		return nil, errnf
+	if err != nil {
+		return nil, err
 	}
 	if acct.Email != req.Email {
 		return nil, ErrBadRequest{Fields: map[string]string{"email": "mismatch"}}
@@ -117,9 +114,8 @@ func (v *validationMiddleware) Balance(req BalanceReq) (*decimal.Decimal, error)
 
 func (v *validationMiddleware) Statement(w io.Writer, req StatementReq) error {
 	acct, err := v.repo.GetAccount(req.AcctID)
-	errnf := ErrNotFound{}
-	if err != nil && errors.As(err, &errnf) {
-		return errnf
+	if err != nil {
+		return err
 	}
 	if acct.Email != req.Email {
 		return ErrBadRequest{Fields: map[string]string{"email": "mismatch"}}
@@ -150,20 +146,49 @@ func NewValidationMiddleware(repo Repository, sysAccts map[string]snowflake.ID) 
 // example of load shedding.
 type limitMiddleware struct {
 	next   Service
-	limits *ServiceLimits
+	limits *serviceLimits
 }
 
 var _ Service = (*limitMiddleware)(nil)
 
-type ServiceLimits struct {
-	CreateAccount *semaphore.Weighted
-	Deposit       *semaphore.Weighted
-	Withdraw      *semaphore.Weighted
-	Balance       *semaphore.Weighted
-	Statement     *semaphore.Weighted
+// endpointLimit defines the deadline/SLO and a token bucket rate limiter
+// for a service endpoint
+type endpointLimit struct {
+	Slo time.Duration
+	Lmt *rate.Limiter
 }
 
-func NewlimitMiddleware(limits *ServiceLimits) Middleware {
+type serviceLimits struct {
+	CreateAccount *endpointLimit
+	Deposit       *endpointLimit
+	Withdraw      *endpointLimit
+	Balance       *endpointLimit
+	Statement     *endpointLimit
+}
+
+func NewlimitMiddleware(cfg *ServiceLimitsCfg) Middleware {
+	limits := &serviceLimits{
+		CreateAccount: &endpointLimit{
+			Slo: time.Duration(cfg.CreateAccount.SloMs) * time.Millisecond,
+			Lmt: rate.NewLimiter(rate.Limit(cfg.CreateAccount.Rate), cfg.CreateAccount.Burst),
+		},
+		Deposit: &endpointLimit{
+			Slo: time.Duration(cfg.Deposit.SloMs) * time.Millisecond,
+			Lmt: rate.NewLimiter(rate.Limit(cfg.Deposit.Rate), cfg.Deposit.Burst),
+		},
+		Withdraw: &endpointLimit{
+			Slo: time.Duration(cfg.Withdraw.SloMs) * time.Millisecond,
+			Lmt: rate.NewLimiter(rate.Limit(cfg.Withdraw.Rate), cfg.Withdraw.Burst),
+		},
+		Balance: &endpointLimit{
+			Slo: time.Duration(cfg.Balance.SloMs) * time.Millisecond,
+			Lmt: rate.NewLimiter(rate.Limit(cfg.Balance.Rate), cfg.Balance.Burst),
+		},
+		Statement: &endpointLimit{
+			Slo: time.Duration(cfg.Statement.SloMs) * time.Millisecond,
+			Lmt: rate.NewLimiter(rate.Limit(cfg.Statement.Rate), cfg.Statement.Burst),
+		},
+	}
 	return func(next Service) Service {
 		return &limitMiddleware{
 			next:   next,
@@ -173,70 +198,41 @@ func NewlimitMiddleware(limits *ServiceLimits) Middleware {
 }
 
 func (l *limitMiddleware) CreateAccount(req CreateAccountReq) (*Account, error) {
+	ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(l.limits.CreateAccount.Slo))
+	if err := l.limits.CreateAccount.Lmt.Wait(ctx); err != nil {
+		return nil, ErrServiceUnavailable
+	}
 	return l.next.CreateAccount(req)
 }
 
 func (l *limitMiddleware) Deposit(req ChargeReq) (*decimal.Decimal, error) {
+	ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(l.limits.Deposit.Slo))
+	if err := l.limits.Deposit.Lmt.Wait(ctx); err != nil {
+		return nil, ErrServiceUnavailable
+	}
 	return l.next.Deposit(req)
 }
 
 func (l *limitMiddleware) Withdraw(req ChargeReq) (*decimal.Decimal, error) {
+	ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(l.limits.Withdraw.Slo))
+	if err := l.limits.Withdraw.Lmt.Wait(ctx); err != nil {
+		return nil, ErrServiceUnavailable
+	}
 	return l.next.Withdraw(req)
 }
 
 func (l *limitMiddleware) Balance(req BalanceReq) (*decimal.Decimal, error) {
+	ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(l.limits.Balance.Slo))
+	if err := l.limits.Balance.Lmt.Wait(ctx); err != nil {
+		return nil, ErrServiceUnavailable
+	}
 	return l.next.Balance(req)
 }
 
 func (l *limitMiddleware) Statement(w io.Writer, req StatementReq) error {
-	return l.next.Statement(w, req)
-}
-
-type ServiceBreaker struct {
-	CreateAccount *gobreaker.TwoStepCircuitBreaker[*Account]
-	Deposit       *gobreaker.TwoStepCircuitBreaker[*decimal.Decimal]
-	Withdraw      *gobreaker.TwoStepCircuitBreaker[*decimal.Decimal]
-	Balance       *gobreaker.TwoStepCircuitBreaker[*decimal.Decimal]
-	Statement     *gobreaker.TwoStepCircuitBreaker[interface{}]
-}
-
-// circuitBreakMiddleware is a middleware that implements the circuit breaker pattern.
-// It works in conjunction with limitMiddleware to limit the number of in-flight
-// requests to the service when the circuit is not in `closed` state, i.e., the service
-// is experiencing heavy load and is struggling to release tokens from the limit
-// semaphores within request deadline
-type circuitBreakMiddleware struct {
-	next  Service
-	brkrs *ServiceBreaker
-}
-
-var _ Service = (*circuitBreakMiddleware)(nil)
-
-func NewCircuitBreakMiddleware(brkrs *ServiceBreaker) Middleware {
-	return func(next Service) Service {
-		return &circuitBreakMiddleware{
-			next:  next,
-			brkrs: brkrs,
-		}
+	ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(l.limits.Statement.Slo))
+	if err := l.limits.Statement.Lmt.Wait(ctx); err != nil {
+		return ErrServiceUnavailable
 	}
-}
-
-func (c *circuitBreakMiddleware) CreateAccount(req CreateAccountReq) (*Account, error) {
-	return c.next.CreateAccount(req)
-}
-
-func (c *circuitBreakMiddleware) Deposit(req ChargeReq) (*decimal.Decimal, error) {
-	return c.next.Deposit(req)
-}
-
-func (c *circuitBreakMiddleware) Withdraw(req ChargeReq) (*decimal.Decimal, error) {
-	return c.next.Withdraw(req)
-}
-
-func (c *circuitBreakMiddleware) Balance(req BalanceReq) (*decimal.Decimal, error) {
-	return c.next.Balance(req)
-}
-
-func (c *circuitBreakMiddleware) Statement(w io.Writer, req StatementReq) error {
-	return c.next.Statement(w, req)
+	return l.next.Statement(w, req)
 }
