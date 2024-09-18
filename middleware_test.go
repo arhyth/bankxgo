@@ -122,6 +122,27 @@ func TestValidationMWWithdraw(t *testing.T) {
 		as.Nil(bal)
 	})
 
+	t.Run("returns error on empty email", func(tt *testing.T) {
+		as := assert.New(tt)
+		ctrl := gomock.NewController(tt)
+		repo := mocks.NewMockRepository(ctrl)
+		svc := mocks.NewMockService(ctrl)
+		usdSysAcct := snowflake.ParseInt64(7241720446024945664)
+		sysAccts := map[string]snowflake.ID{"USD": usdSysAcct}
+		v := bankxgo.NewValidationMiddleware(repo, sysAccts)(svc)
+
+		userAcctID := snowflake.ParseInt64(7241722241547767808)
+		userEmail := ""
+		req := bankxgo.ChargeReq{
+			Amount: decimal.NewFromInt(123),
+			AcctID: userAcctID,
+			Email:  userEmail,
+		}
+		bal, err := v.Withdraw(req)
+		as.NotNil(err)
+		as.Nil(bal)
+	})
+
 	t.Run("Withdraw returns error on negative amount", func(tt *testing.T) {
 		as := assert.New(tt)
 		ctrl := gomock.NewController(tt)
@@ -242,6 +263,27 @@ func TestValidationMWDeposit(t *testing.T) {
 		as.Nil(bal)
 	})
 
+	t.Run("returns error on empty email", func(tt *testing.T) {
+		as := assert.New(tt)
+		ctrl := gomock.NewController(tt)
+		repo := mocks.NewMockRepository(ctrl)
+		svc := mocks.NewMockService(ctrl)
+		usdSysAcct := snowflake.ParseInt64(7241720446024945664)
+		sysAccts := map[string]snowflake.ID{"USD": usdSysAcct}
+		v := bankxgo.NewValidationMiddleware(repo, sysAccts)(svc)
+
+		userAcctID := snowflake.ParseInt64(7241722241547767808)
+		userEmail := ""
+		req := bankxgo.ChargeReq{
+			Amount: decimal.NewFromInt(123),
+			AcctID: userAcctID,
+			Email:  userEmail,
+		}
+		bal, err := v.Deposit(req)
+		as.NotNil(err)
+		as.Nil(bal)
+	})
+
 	t.Run("Deposit returns error on negative amount", func(tt *testing.T) {
 		as := assert.New(tt)
 		ctrl := gomock.NewController(tt)
@@ -313,6 +355,26 @@ func TestValidationMWBalance(t *testing.T) {
 		as.NotNil(err)
 		as.Nil(bal)
 	})
+
+	t.Run("returns error on empty email", func(tt *testing.T) {
+		as := assert.New(tt)
+		ctrl := gomock.NewController(tt)
+		repo := mocks.NewMockRepository(ctrl)
+		svc := mocks.NewMockService(ctrl)
+		usdSysAcct := snowflake.ParseInt64(7241720446024945664)
+		sysAccts := map[string]snowflake.ID{"USD": usdSysAcct}
+		v := bankxgo.NewValidationMiddleware(repo, sysAccts)(svc)
+
+		userAcctID := snowflake.ParseInt64(7241722241547767808)
+		userEmail := ""
+		req := bankxgo.BalanceReq{
+			AcctID: userAcctID,
+			Email:  userEmail,
+		}
+		bal, err := v.Balance(req)
+		as.NotNil(err)
+		as.Nil(bal)
+	})
 }
 
 func TestValidationMWStatement(t *testing.T) {
@@ -356,6 +418,26 @@ func TestValidationMWStatement(t *testing.T) {
 				AcctID: userAcctID,
 				Email:  "correct@email.com",
 			}, nil)
+		req := bankxgo.StatementReq{
+			AcctID: userAcctID,
+			Email:  userEmail,
+		}
+		w := &bytes.Buffer{}
+		err := v.Statement(w, req)
+		as.NotNil(err)
+	})
+
+	t.Run("returns error on empty email", func(tt *testing.T) {
+		as := assert.New(tt)
+		ctrl := gomock.NewController(tt)
+		repo := mocks.NewMockRepository(ctrl)
+		svc := mocks.NewMockService(ctrl)
+		usdSysAcct := snowflake.ParseInt64(7241720446024945664)
+		sysAccts := map[string]snowflake.ID{"USD": usdSysAcct}
+		v := bankxgo.NewValidationMiddleware(repo, sysAccts)(svc)
+
+		userAcctID := snowflake.ParseInt64(7241722241547767808)
+		userEmail := ""
 		req := bankxgo.StatementReq{
 			AcctID: userAcctID,
 			Email:  userEmail,

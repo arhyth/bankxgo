@@ -47,6 +47,9 @@ func (v *validationMiddleware) Deposit(req ChargeReq) (*decimal.Decimal, error) 
 	if req.Amount.IsNegative() {
 		return nil, ErrBadRequest{Fields: map[string]string{"amount": "negative"}}
 	}
+	if req.Email == "" {
+		return nil, ErrBadRequest{Fields: map[string]string{"email": "missing/invalid"}}
+	}
 
 	for _, id := range v.sysAccts {
 		if id == req.AcctID {
@@ -73,6 +76,9 @@ func (v *validationMiddleware) Deposit(req ChargeReq) (*decimal.Decimal, error) 
 func (v *validationMiddleware) Withdraw(req ChargeReq) (*decimal.Decimal, error) {
 	if req.Amount.IsNegative() {
 		return nil, ErrBadRequest{Fields: map[string]string{"amount": "negative"}}
+	}
+	if req.Email == "" {
+		return nil, ErrBadRequest{Fields: map[string]string{"email": "missing/invalid"}}
 	}
 
 	for _, id := range v.sysAccts {
@@ -101,6 +107,9 @@ func (v *validationMiddleware) Withdraw(req ChargeReq) (*decimal.Decimal, error)
 }
 
 func (v *validationMiddleware) Balance(req BalanceReq) (*decimal.Decimal, error) {
+	if req.Email == "" {
+		return nil, ErrBadRequest{Fields: map[string]string{"email": "missing/invalid"}}
+	}
 	acct, err := v.repo.GetAccount(req.AcctID)
 	if err != nil {
 		return nil, err
@@ -113,6 +122,9 @@ func (v *validationMiddleware) Balance(req BalanceReq) (*decimal.Decimal, error)
 }
 
 func (v *validationMiddleware) Statement(w io.Writer, req StatementReq) error {
+	if req.Email == "" {
+		return ErrBadRequest{Fields: map[string]string{"email": "missing/invalid"}}
+	}
 	acct, err := v.repo.GetAccount(req.AcctID)
 	if err != nil {
 		return err
