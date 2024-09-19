@@ -162,11 +162,11 @@ curl -H "email:boy@bawang.com" -o fetched.pdf http://localhost:3000/accounts/183
 1. Uses debit/credit book keeping
 2. Requires a seed of system account record for each currency supported; however, the balance of these accounts are not checked for every transaction since that would easily cause a bottleneck, ie. the system account is debited / credited correspondingly for each user deposit / withdrawal. Think user-to-user transfers but one of the users is always the system.
 3. Instead, the user account balance will be used to enforce invariant (should not be allowed to withdraw to below zero). The system accounts can be monitored for consistency by some other external process albeit in “soft-time”. I believe this is a good enough trade off.
-4. Transaction involves following steps:
- 4.1 Insert a transaction record
- 4.2 Create corresponding records on charges table, one for the user account
- 4.3 another for the system account;
- 4.4 Lock user account record and update balance
+4. Transaction involves following steps:  
+ 4.1 Insert a transaction record.  
+ 4.2 Create corresponding records on charges table, one for the user account  
+ 4.3 another for the system account.  
+ 4.4 Lock user account record and update balance.  
 5. Explicit locking is used to avoid excessive transaction aborts in case of heavy contention.
 6. The `transactions` table does not improve safety/consistency of the system. It is simply a means to improve “auditability” as it ties charge records together. 
 7. The invariant-keeping logic is intentionally pushed to the database to keep the service (instances) stateless and simple. I believe this is a good enough design without having to involve an external queue or write some haphazard internal version of it for coordination and load buffering.
