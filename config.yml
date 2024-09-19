@@ -9,21 +9,21 @@ system_accounts:
 service_limits:
   create_account:
     slo_ms: 300
-    rate: 10
-    burst: 40
+    rate: 1000
+    burst: 3000
   deposit:
     slo_ms: 300
-    rate: 10
-    burst: 40
+    rate: 1000
+    burst: 3000
   withdraw:
     slo_ms: 300
-    rate: 10
-    burst: 40
+    rate: 1000
+    burst: 3000
   balance:
     slo_ms: 300
-    rate: 20
-    burst: 40
+    rate: 1000
+    burst: 3000
   statement:
     slo_ms: 1200
-    rate: 5
-    burst: 10
+    rate: 200
+    burst: 1000
